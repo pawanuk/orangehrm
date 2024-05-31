@@ -19,6 +19,10 @@ export function generateContactDetails() {
   ];
 }
 
+/**
+ * Creating an empty json template for the contact details page.
+ * @returns empty template json object
+ */
 export function contactDetailsTemplate() {
   return {
     "Steet 1": "",
@@ -34,6 +38,11 @@ export function contactDetailsTemplate() {
   };
 }
 
+/**
+ * Generating data and putting in json template 
+ * json data to be iterated over and entered in form fields
+ * @returns json which also used as expected data.
+ */
 export function generateContactDetailsJSON() {
   const expectedDetails = { ...contactDetailsTemplate() }
   expectedDetails["Steet 1"] = faker.location.streetAddress()

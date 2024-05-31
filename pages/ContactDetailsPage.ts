@@ -35,16 +35,6 @@ export class ContactDetailsPage {
     }
   }
 
-  async fillContactDetailsJSON(data: any) {
-    let count = 1
-    for (let [key, value] of Object.entries(data)) {
-      const n = count + 1
-      console.log(`Filling data: ${value} at ${n}`);
-      await this.page.fill(`(//input)[${n}]`, value as string);
-      count++;
-    }
-  }
-
   async verifyContactDetails(data: string[]) {
     await this.page.focus(this.firstFieldLocator);
     for (let i = 0; i < data.length; i++) {
@@ -62,17 +52,37 @@ export class ContactDetailsPage {
     }
   }
 
+  /**
+   * Iterate over json object and enter values in contact form fields.
+   * @param data -> json object with values to enter in fields.
+   */
+  async fillContactDetailsJSON(jsonData: any) {
+    let count = 1 // initialize a counter 
+    for (let [key, value] of Object.entries(jsonData)) { // entries will return key, value pair
+      const n = count + 1 // initialize n to index xpath
+      console.log(`Filling data: ${value} at ${n}`);
+      await this.page.fill(`(//input)[${n}]`, value as string); // value from json data
+      count++; 
+    }
+  }
+
+  /**
+   * Create actual json object, copying contact details tempalte. 
+   * (means copying only keys and values are empty)
+   * Iterate over actual empty json
+   * @returns 
+   */
   async getActualContactDetailsJSON(): Promise<any> {
-    const actualDetails: { [key: string]: string } = { ...contactDetailsTemplate };
-    const fieldKeys = Object.keys(actualDetails);
-    for (let i = 0; i < fieldKeys.length; i++) {
-        const selector = `(//input)[${i + 1}]`;
-        actualDetails[fieldKeys[i]] = await this.page.inputValue(selector);
-        console.log(actualDetails[fieldKeys[i]]);
-        
+    const actualDetails: { [key: string]: string } = { ...contactDetailsTemplate() }; // create actual detials template
+    let count = 1
+    for (let [key, value] of Object.entries(actualDetails)) { // entries will give (key, value) where value is empty
+      const n = count + 1
+      const selector = `(//input)[${n}]`;
+      actualDetails[key] = await this.page.inputValue(selector); // read the actual data and update the value for the key
+      count++;
     }
     return actualDetails;
-}
+  }
 
 
 
