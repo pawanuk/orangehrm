@@ -18,42 +18,6 @@ const generateRandomData = (label: string): string => {
 };
 
 // Function to extract form fields (generates absolute xpaths)
-const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
-    return await page.evaluate(() => {
-        const labels = Array.from(document.querySelectorAll('label.oxd-label'));
-        const selectors: FieldSelectors = {};
-
-        labels.forEach((label) => {
-            const labelText = label.textContent?.trim();
-            if (labelText) {
-                const commonDiv = label.closest('.oxd-input-group');
-                if (commonDiv) {
-                    const input = commonDiv.querySelector('input, textarea, select');
-                    if (input) {
-                        // Construct the XPath dynamically
-                        let currentElement: HTMLElement | null = input as HTMLElement;
-                        let xpathSegments: string[] = [];
-
-                        while (currentElement && currentElement !== document.body) {
-                            const tagName = currentElement.tagName.toLowerCase();
-                            const siblings = Array.from(currentElement.parentElement!.children)
-                                .filter((sibling) => sibling.tagName.toLowerCase() === tagName);
-                            const index = siblings.indexOf(currentElement) + 1;
-                            xpathSegments.unshift(`${tagName}[${index}]`);
-                            currentElement = currentElement.parentElement;
-                        }
-
-                        const inputXPath = '//' + xpathSegments.join('/');
-                        selectors[labelText] = inputXPath;
-                    }
-                }
-            }
-        });
-
-        return selectors;
-    });
-};
-// // Generates relative xpaths
 // const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
 //     return await page.evaluate(() => {
 //         const labels = Array.from(document.querySelectorAll('label.oxd-label'));
@@ -66,10 +30,21 @@ const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
 //                 if (commonDiv) {
 //                     const input = commonDiv.querySelector('input, textarea, select');
 //                     if (input) {
-//                         // Construct the relative XPath for the input
-//                         const inputTagName = input.tagName.toLowerCase();
-//                         const inputPosition = Array.from(commonDiv.children).indexOf(input) + 1;
-//                         selectors[labelText] = `//label[text()='${labelText}']/following::${inputTagName}[${inputPosition}]`;
+//                         // Construct the XPath dynamically
+//                         let currentElement: HTMLElement | null = input as HTMLElement;
+//                         let xpathSegments: string[] = [];
+
+//                         while (currentElement && currentElement !== document.body) {
+//                             const tagName = currentElement.tagName.toLowerCase();
+//                             const siblings = Array.from(currentElement.parentElement!.children)
+//                                 .filter((sibling) => sibling.tagName.toLowerCase() === tagName);
+//                             const index = siblings.indexOf(currentElement) + 1;
+//                             xpathSegments.unshift(`${tagName}[${index}]`);
+//                             currentElement = currentElement.parentElement;
+//                         }
+
+//                         const inputXPath = '//' + xpathSegments.join('/');
+//                         selectors[labelText] = inputXPath;
 //                     }
 //                 }
 //             }
@@ -78,10 +53,35 @@ const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
 //         return selectors;
 //     });
 // };
+// // Generates relative xpaths
+const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
+    return await page.evaluate(() => {
+        const labels = Array.from(document.querySelectorAll('label.oxd-label')); // 
+        const selectors: FieldSelectors = {}; // key: Value | 'City': 'xpath'
+
+        labels.forEach((label) => {
+            const labelText = label.textContent?.trim(); // Street 1
+            if (labelText) {
+                const commonDiv = label.closest('.oxd-input-group');
+                if (commonDiv) {
+                    const input = commonDiv.querySelector('input, textarea, select');
+                    if (input) {
+                        // Construct the relative XPath for the input
+                        const siblings = Array.from(commonDiv.querySelectorAll(input.tagName.toLowerCase()));
+                        const inputPosition = siblings.indexOf(input) + 1;
+                        selectors[labelText] = `//label[text()='${labelText}']/following::${input.tagName.toLowerCase()}[${inputPosition}]`;
+                    }
+                }
+            }
+        }); 
+
+        return selectors;
+    });
+};
 
 // Function to fill the form
 const fillForm = async (page: Page, fields: { [label: string]: string }) => {
-    for (const [label, selector] of Object.entries(fields)) {
+    for (const [label, selector] of Object.entries(fields)) { // key, value -> label, xpath of input
         const value = generateRandomData(label);
         console.log(`Filling field "${label}" with value "${value}" using selector "${selector}"`);
         const element = await page.$(selector);
@@ -144,7 +144,7 @@ test.only('Fill and verify form using random data', async ({ page }) => {
     await page.locator('div[role="option"]:has-text("Afghanistan")').click();
 
     // Submit the form
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.locator("(//button[normalize-space()='Save'])[1]").click();
 
     // Add a slight delay to ensure the form submission is complete
     await page.waitForTimeout(5000);
