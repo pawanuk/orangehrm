@@ -108,7 +108,7 @@ const captureFormData = async (page: Page, fields: { [label: string]: string }):
     return formData;
 };
 
-test.only('Fill and verify form using random data', async ({ page }) => {
+test('Fill and verify form using random data', async ({ page }) => {
     // Navigate to the login page
     await page.goto('https://opensource-demo.orangehrmlive.com/web/index.php/auth/login');
     await page.getByPlaceholder('Username').fill('Admin');

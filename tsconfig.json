@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-      "target": "ESNext",
+      "target": "ES6",
       "module": "commonjs",
       "strict": true,
       "esModuleInterop": true,
@@ -8,6 +8,6 @@
       "forceConsistentCasingInFileNames": true,
       "outDir": "dist"
     },
-    "include": ["pages/**/*.ts", "tests/**/*.ts", "utils/**/*.ts"]
+    "include": ["pages/**/*.ts","webScraping.spec.ts", "tests/**/*.ts", "utils/**/*.ts"]
   }
   
