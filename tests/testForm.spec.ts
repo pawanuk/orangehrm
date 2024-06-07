@@ -56,13 +56,13 @@ const generateRandomData = (label: string): string => {
 // // Generates relative xpaths
 const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
     return await page.evaluate(() => {
-        const labels = Array.from(document.querySelectorAll('label.oxd-label')); // 
+        const labels = Array.from(document.querySelectorAll('label')); // 
         const selectors: FieldSelectors = {}; // key: Value | 'City': 'xpath'
 
         labels.forEach((label) => {
             const labelText = label.textContent?.trim(); // Street 1
             if (labelText) {
-                const commonDiv = label.closest('.oxd-input-group');
+                const commonDiv = label.closest('div');
                 if (commonDiv) {
                     const input = commonDiv.querySelector('input, textarea, select');
                     if (input) {
@@ -73,7 +73,7 @@ const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
                     }
                 }
             }
-        }); 
+        });
 
         return selectors;
     });
@@ -81,16 +81,28 @@ const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
 
 // Function to fill the form
 const fillForm = async (page: Page, fields: { [label: string]: string }) => {
-    for (const [label, selector] of Object.entries(fields)) { // key, value -> label, xpath of input
+    for (const [label, selector] of Object.entries(fields)) {
         const value = generateRandomData(label);
         console.log(`Filling field "${label}" with value "${value}" using selector "${selector}"`);
         const element = await page.$(selector);
         if (element) {
             const tagName = await element.evaluate(el => el.tagName);
+            const tagType = await element.getAttribute("type")
+
             if (tagName === 'SELECT') {
-                await element.selectOption({ label: value });
-            } else {
+                const options = await element.$$eval('option', (options) => options.map(option => option.textContent)); // Get all options text content
+                if (options.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * options.length); // Generate random index
+                    const randomOption = options[randomIndex];
+                    console.log(`Selecting random option: ${randomOption}`);
+                    await element.selectOption({ value: randomOption as string }); // Select by text content
+                } else {
+                    console.log(`No options found for selector: ${selector}`);
+                }
+            } else if (tagName === "INPUT" && tagType === "text") {
                 await element.fill(value);
+            } else if (tagName === "INPUT" && tagType === "radio") {
+                await element.click();
             }
         }
     }
@@ -110,20 +122,7 @@ const captureFormData = async (page: Page, fields: { [label: string]: string }):
 
 test('Fill and verify form using random data', async ({ page }) => {
     // Navigate to the login page
-    await page.goto('https://opensource-demo.orangehrmlive.com/web/index.php/auth/login');
-    await page.getByPlaceholder('Username').fill('Admin');
-    await page.getByPlaceholder('Password').fill('admin123');
-    await page.getByRole('button', { name: 'Login' }).click();
-
-    // Add a slight delay to ensure the navigation is complete
-    await page.waitForTimeout(5000);
-
-    // Navigate to the form page
-    await page.getByRole('link', { name: 'My Info' }).click();
-    await page.getByRole('link', { name: 'Contact Details' }).click();
-
-    // Add a slight delay to ensure the page is fully loaded
-    await page.waitForTimeout(5000);
+    await page.goto('file:///D:/pawan/orangehrm/utils/example.html');
 
     // Extract form fields and their selectors
     const fields = await extractFormFields(page);
@@ -137,14 +136,6 @@ test('Fill and verify form using random data', async ({ page }) => {
 
     // Fill the form with generated data
     await fillForm(page, fields);
-
-    // Select country manually due to the specific script from codegen
-    const countryDropdown = page.locator('div[class*="oxd-select-wrapper"]');
-    await countryDropdown.click();
-    await page.locator('div[role="option"]:has-text("Afghanistan")').click();
-
-    // Submit the form
-    await page.locator("(//button[normalize-space()='Save'])[1]").click();
 
     // Add a slight delay to ensure the form submission is complete
     await page.waitForTimeout(5000);
