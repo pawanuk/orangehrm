@@ -4,25 +4,25 @@ import { faker } from '@faker-js/faker';
 interface FieldData {
     label: string;
     selector: string;
-    value?: string;
-    fieldType?: 'text' | 'textarea' | 'dropdown' | 'checkbox' | 'radio' | 'date' | 'file' | 'number' | 'email';
+    fieldType: 'text' | 'textarea' | 'dropdown' | 'checkbox' | 'radio' | 'date' | 'file' | 'number' | 'email' | 'password';
 }
 
 // Function to get dropdown options from the page
 const getDropdownOptions = async (page: Page, selector: string): Promise<string[]> => {
-    const options = await page.$$eval(`${selector}//option`, (options: HTMLOptionElement[]) => options.map(option => option.textContent?.trim() || ''));
+    const options = await page.$$eval(`${selector} option`, (options: HTMLOptionElement[]) => options.map(option => option.textContent?.trim() || ''));
     return options.filter(option => option !== '');
 };
 
 // Function to generate random data for form fields
 const generateRandomData = async (page: Page, fieldData: FieldData): Promise<string | number | Date | boolean> => {
-    if (!fieldData.fieldType) return faker.lorem.word(); // Default random word
     switch (fieldData.fieldType) {
         case 'text':
         case 'textarea':
             return faker.lorem.sentence();
         case 'email':
             return faker.internet.email();
+        case 'password':
+            return faker.internet.password();
         case 'file':
             // Handle file upload logic here (consider using a fixture to provide test files)
             return 'path/to/your/file.txt';
@@ -41,53 +41,45 @@ const generateRandomData = async (page: Page, fieldData: FieldData): Promise<str
     }
 };
 
-// Function to determine appropriate field selector based on field type
-const getSelector = (label: string, tagName: string, fieldType: string): string => {
-    switch (fieldType) {
-        case 'checkbox':
-        case 'radio':
-            return `//label[text()='${label}']/following-sibling::${tagName.toLowerCase()}[@type='${fieldType}']`;
-        case 'date':
-            return `//label[text()='${label}']/following-sibling::${tagName.toLowerCase()}[@type='date']`;
-        case 'dropdown':
-            return `//label[text()='${label}']/following-sibling::${tagName.toLowerCase()}`;
-        default:
-            return `//label[text()='${label}']/following-sibling::${tagName.toLowerCase()}`;
-    }
-};
-
-// Function to extract form fields and their selectors, including nested fields
+// Function to extract form fields and their selectors dynamically
 const extractFormFields = async (page: Page): Promise<FieldData[]> => {
     const fields: FieldData[] = [];
-    const labels = await page.locator('label').all();
+    const formElements = await page.$$('form input, form textarea, form select');
 
-    for (const label of labels) {
-        const labelText = (await label.textContent())?.trim();
-        if (labelText) {
-            const commonDivHandle = await label.evaluateHandle((el: Element) => el.closest('div'));
-            const commonDivElement = commonDivHandle.asElement();
-            if (commonDivElement) {
-                const inputs = await commonDivElement.$$('input, textarea, select');
-                for (const input of inputs) {
-                    const tagName = (await input.evaluate((el: Element) => el.tagName)).toLowerCase();
-                    const typeAttr = await input.getAttribute("type") || tagName;
-                    const fieldType = tagName === 'select' ? 'dropdown' : typeAttr;
-                    if (fieldType) {
-                        fields.push({
-                            label: labelText,
-                            selector: getSelector(labelText, tagName, fieldType),
-                            fieldType: fieldType as FieldData['fieldType'],
-                        });
-                    }
-                }
-            }
+    for (const element of formElements) {
+        const tagName = await element.evaluate(el => el.tagName.toLowerCase());
+        const typeAttr = await element.evaluate(el => el.getAttribute('type') || el.tagName.toLowerCase());
+        const fieldType = tagName === 'select' ? 'dropdown' : typeAttr as FieldData['fieldType'];
+
+        const closestLabel = await element.evaluateHandle(el => el.closest('label') || (el.previousElementSibling?.tagName === 'LABEL' ? el.previousElementSibling : null));
+        const labelText = closestLabel ? await closestLabel.evaluate(el => el?.textContent?.trim() || '') : '';
+
+        const uniqueSelector = await element.evaluate(el => {
+            const id = el.getAttribute('id');
+            if (id) return `${el.tagName.toLowerCase()}#${id}`;
+            
+            const name = el.getAttribute('name');
+            if (name) return `${el.tagName.toLowerCase()}[name="${name}"]`;
+
+            const classes = el.className.split(' ').filter(cls => cls).join('.');
+            if (classes) return `${el.tagName.toLowerCase()}.${classes}`;
+
+            return null;
+        });
+
+        if (labelText && uniqueSelector) {
+            fields.push({
+                label: labelText,
+                selector: uniqueSelector,
+                fieldType: fieldType as FieldData['fieldType'],
+            });
         }
     }
 
     return fields;
 };
 
-// Function to fill the form
+// Function to fill the form dynamically
 const fillForm = async (page: Page, fields: FieldData[], expectedFormData?: Record<string, string>) => {
     for (const field of fields) {
         const value = expectedFormData ? expectedFormData[field.label] : await generateRandomData(page, field);
@@ -97,6 +89,7 @@ const fillForm = async (page: Page, fields: FieldData[], expectedFormData?: Reco
             switch (field.fieldType) {
                 case 'text':
                 case 'textarea':
+                case 'password':
                     await element.fill(value as string);
                     break;
                 case 'dropdown':
@@ -114,8 +107,6 @@ const fillForm = async (page: Page, fields: FieldData[], expectedFormData?: Reco
                     await element.setInputFiles(field.value || (value as string));
                     break;
                 case 'number':
-                    await element.fill(value.toString()); // Convert number to string for filling
-                    break;
                 case 'email':
                     await element.fill(value as string);
                     break;
@@ -138,6 +129,7 @@ const captureFormData = async (page: Page, fields: FieldData[]): Promise<Record<
                 case 'textarea':
                 case 'number':
                 case 'email':
+                case 'password':
                     fieldValue = await element.inputValue();
                     break;
                 case 'dropdown':
@@ -187,18 +179,7 @@ test('Fill and verify form using random data', async ({ page }) => {
         return;
     }
 
-    // Adjust selectors for specific fields based on provided locators
-    fields.forEach(field => {
-        if (field.label.includes('Birthdate')) {
-            if (field.selector.includes('select')) {
-                field.selector = field.selector.replace('select', `div/select[${field.label.includes('day') ? '1' : '2'}]`);
-            } else if (field.selector.includes('input')) {
-                field.selector = field.selector.replace('input', 'div/input');
-            }
-        }
-    });
-
-    // Generate expected data for verification (replace with your specific data)
+    // Generate expected data for verification
     const expectedFormData: Record<string, string> = {};
     for (const field of fields) {
         expectedFormData[field.label] = await generateRandomData(page, field) as string;
@@ -208,7 +189,7 @@ test('Fill and verify form using random data', async ({ page }) => {
     await fillForm(page, fields, expectedFormData);
 
     // Submit the form (modify based on your form submission mechanism)
-    await page.locator("(//button[normalize-space()='Save'])[1]").click();
+    await page.locator('button[type="submit"]').click();
 
     // Add a slight delay to ensure the form submission is complete
     await page.waitForTimeout(5000);

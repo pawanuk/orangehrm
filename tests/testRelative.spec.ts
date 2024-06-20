@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, ElementHandle } from '@playwright/test';
 import { faker } from '@faker-js/faker';
 
 interface FieldSelectors {
@@ -19,43 +19,7 @@ const generateRandomData = (label: string): string => {
     return faker.lorem.word(); // Default random word
 };
 
-// Function to extract form fields (generates absolute xpaths)
-// const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
-//     return await page.evaluate(() => {
-//         const labels = Array.from(document.querySelectorAll('label.oxd-label'));
-//         const selectors: FieldSelectors = {};
-
-//         labels.forEach((label) => {
-//             const labelText = label.textContent?.trim();
-//             if (labelText) {
-//                 const commonDiv = label.closest('.oxd-input-group');
-//                 if (commonDiv) {
-//                     const input = commonDiv.querySelector('input, textarea, select');
-//                     if (input) {
-//                         // Construct the XPath dynamically
-//                         let currentElement: HTMLElement | null = input as HTMLElement;
-//                         let xpathSegments: string[] = [];
-
-//                         while (currentElement && currentElement !== document.body) {
-//                             const tagName = currentElement.tagName.toLowerCase();
-//                             const siblings = Array.from(currentElement.parentElement!.children)
-//                                 .filter((sibling) => sibling.tagName.toLowerCase() === tagName);
-//                             const index = siblings.indexOf(currentElement) + 1;
-//                             xpathSegments.unshift(`${tagName}[${index}]`);
-//                             currentElement = currentElement.parentElement;
-//                         }
-
-//                         const inputXPath = '//' + xpathSegments.join('/');
-//                         selectors[labelText] = inputXPath;
-//                     }
-//                 }
-//             }
-//         });
-
-//         return selectors;
-//     });
-// };
-// // Generates relative xpaths
+// Function to extract form fields 
 const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
   return await page.evaluate(() => {
     const labels = Array.from(document.querySelectorAll('label'));
@@ -85,6 +49,25 @@ const extractFormFields = async (page: Page): Promise<FieldSelectors> => {
   });
 };
 
+// Recursive function to select a valid option
+const selectValidOption = async (element: ElementHandle, options: string[]): Promise<string> => {
+    if (options.length === 0) {
+        throw new Error('No options available');
+    }
+    
+    const randomIndex = Math.floor(Math.random() * options.length);
+    const randomOption = options[randomIndex];
+
+    if (randomOption && randomOption.trim() !== "") {
+        console.log(`Selecting valid option: ${randomOption}`);
+        await element.selectOption({ label: randomOption });
+        return randomOption;
+    } else {
+        console.log('Selected option is null or empty, retrying...');
+        return selectValidOption(element, options); // Recursively call until a valid option is found
+    }
+};
+
 // Function to fill the form
 const fillForm = async (page: Page, fields: { [label: string]: string }) => {
     for (const [label, selector] of Object.entries(fields)) {
@@ -96,16 +79,13 @@ const fillForm = async (page: Page, fields: { [label: string]: string }) => {
             const tagType = await element.getAttribute("type")
 
             if (tagName === 'SELECT') {
-                const options = await element.$$eval('option', (options) => options.map(option => option.textContent)); // Get all options text content
-                if (options.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * options.length); // Generate random index
-                    const randomOption = options[randomIndex];
-                    console.log(`Selecting random option: ${randomOption}`);
-                    await element.selectOption({ value: randomOption as string }); // Select by text content
-                } else {
-                    console.log(`No options found for selector: ${selector}`);
+                const options = await element.$$eval('option', (options) => options.map(option => option.textContent as string)); // Get all options text content
+                try {
+                    await selectValidOption(element, options);
+                } catch (error) {
+                    console.log(`No valid options found for selector: ${selector}`);
                 }
-            } else if (tagName === "INPUT" && (tagType === "text" || tagType === "password")) {
+            } else if (tagName === "INPUT" && (tagType === "text" || tagType === "password" || tagType === "email")) {
                 if (tagType === "password") {
                     if (password !== "") {
                         await element.fill(password);
@@ -117,6 +97,10 @@ const fillForm = async (page: Page, fields: { [label: string]: string }) => {
                 await element.fill(value);
             } else if (tagName === "INPUT" && tagType === "radio") {
                 await element.click();
+            } else if (tagName === "INPUT" && tagType === "checkbox") {
+                await element.check();
+            } else if (tagName === "TEXTAREA") {
+                await element.fill(value);
             }
         }
     }
@@ -132,11 +116,12 @@ const captureFormData = async (page: Page, fields: { [label: string]: string }):
         }
     }
     return formData;
+    
 };
 
 test('Fill and verify form using random data', async ({ page }) => {
     // Navigate to the login page
-    await page.goto('file:///D:/pawan/orangehrm/utils/example.html');
+    await page.goto('file:///D:/pawan/orangehrm/utils/example4.html');
 
     // Extract form fields and their selectors
     const fields = await extractFormFields(page);
@@ -147,6 +132,8 @@ test('Fill and verify form using random data', async ({ page }) => {
         console.error('No form fields were extracted. Please check the selectors and page structure.');
         return;
     }
+
+    await page.waitForTimeout(2000);
 
     // Fill the form with generated data
     await fillForm(page, fields);

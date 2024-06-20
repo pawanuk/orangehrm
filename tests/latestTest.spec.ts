@@ -158,7 +158,7 @@ const verifyFormData = (formData: Record<string, string>, expectedData: Record<s
     }
 };
 
-test.only('Fill and verify form using random data', async ({ page }) => {
+test('Fill and verify form using random data', async ({ page }) => {
     // ... your existing test logic to navigate to the form page
 
     await page.goto('http://127.0.0.1:5500/utils/example.html');

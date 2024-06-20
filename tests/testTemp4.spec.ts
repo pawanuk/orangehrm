@@ -5,8 +5,10 @@ interface FieldData {
     label: string;
     selector: string;
     value?: string;
-    fieldType?: 'text' | 'textarea' | 'dropdown' | 'checkbox' | 'radio' | 'date' | 'file' | 'number' | 'email';
+    fieldType?: 'text' | 'textarea' | 'dropdown' | 'checkbox' | 'radio' | 'date' | 'file' | 'number' | 'email' | 'password';
 }
+
+let password: string = ""
 
 // Function to get dropdown options from the page
 const getDropdownOptions = async (page: Page, selector: string): Promise<string[]> => {
@@ -46,13 +48,13 @@ const getSelector = (label: string, tagName: string, fieldType: string): string 
     switch (fieldType) {
         case 'checkbox':
         case 'radio':
-            return `//label[text()='${label}']/following-sibling::${tagName.toLowerCase()}[@type='${fieldType}']`;
+            return `//label[text()='${label}']/following::${tagName.toLowerCase()}[@type='${fieldType}'][1]`;
         case 'date':
-            return `//label[text()='${label}']/following-sibling::${tagName.toLowerCase()}[@type='date']`;
+            return `//label[text()='${label}']/following::${tagName.toLowerCase()}[@type='date'][1]`;
         case 'dropdown':
-            return `//label[text()='${label}']/following-sibling::${tagName.toLowerCase()}`;
+            return `//label[text()='${label}']/following::${tagName.toLowerCase()}[1]`;
         default:
-            return `//label[text()='${label}']/following-sibling::${tagName.toLowerCase()}`;
+            return `//label[text()='${label}']/following::${tagName.toLowerCase()}[1]`;
     }
 };
 
@@ -87,6 +89,27 @@ const extractFormFields = async (page: Page): Promise<FieldData[]> => {
     return fields;
 };
 
+// Function to handle subfields if any (recursive)
+const handleSubFields = async (page: Page, element: any, fieldData: FieldData): Promise<void> => {
+    const subElements = await element.$$('*');
+    for (const subElement of subElements) {
+        await analyzeAndInteract(page, subElement, fieldData);
+    }
+};
+
+// Function to analyze and interact with elements
+const analyzeAndInteract = async (page: Page, element: any, fieldData: FieldData): Promise<void> => {
+    const tagName = await element.evaluate((el: HTMLElement) => el.tagName.toLowerCase());
+
+    if (['input', 'textarea', 'select'].includes(tagName)) {
+        const type = await element.getAttribute('type') || 'text';
+        const data = generateRandomData(page, fieldData);
+        await element.fill(data);
+    } else {
+        await handleSubFields(page, element, fieldData);
+    }
+};
+
 // Function to fill the form
 const fillForm = async (page: Page, fields: FieldData[], expectedFormData?: Record<string, string>) => {
     for (const field of fields) {
@@ -95,6 +118,14 @@ const fillForm = async (page: Page, fields: FieldData[], expectedFormData?: Reco
         if (element) {
             console.log(`Filling field "${field.label}" with value "${value}"`);
             switch (field.fieldType) {
+                case 'password':
+                    if (password !== "") {
+                        await element.fill(password)
+                        break;
+                    }
+                    await element.fill(value as string);
+                    password
+                    break;
                 case 'text':
                 case 'textarea':
                     await element.fill(value as string);

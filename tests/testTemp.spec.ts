@@ -29,7 +29,7 @@ const generateRandomData = (fieldData: FieldData): string | number | Date => {
 };
 
 // Function to determine appropriate field selector based on field type
-const getSelector = (label: string, fieldType: string): string => {
+const getSelector = (label: string, tagName: string, fieldType: string): string => {
     const baseSelector = `//label[text()='${label}']/following-sibling::`;
     switch (fieldType) {
         case 'checkbox':
@@ -41,7 +41,7 @@ const getSelector = (label: string, fieldType: string): string => {
         case 'text':
             return baseSelector + 'input';
         default:
-            return baseSelector + fieldType;
+            return baseSelector + tagName;
     }
 };
 
@@ -62,7 +62,7 @@ const extractFormFields = async (page: Page): Promise<FieldData[]> => {
                 if (fieldType) {
                     fields.push({
                         label: labelText,
-                        selector: getSelector(labelText, fieldType),
+                        selector: getSelector(labelText, tagName, fieldType),
                         fieldType: fieldType as FieldData['fieldType'],
                     });
                 }

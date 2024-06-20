@@ -138,7 +138,7 @@ const captureFormData = async (page: Page, fields: FieldData[]): Promise<Record<
                     fieldValue = 'File uploaded'; // Placeholder for file upload verification
                     break;
             }
-            formData[field.label] = fieldValue;
+            formData[field?.label] = fieldValue;
         } else {
             console.warn(`Field "${field.label}" not found using selector "${field.selector}".`);
             // Consider throwing an error or handling missing fields differently
