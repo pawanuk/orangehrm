@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betslip</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            display: flex;
+        }
+        .bets-table, .betslip {
+            width: 50%;
+            padding: 15px;
+            margin: 20px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+        }
+        .bets-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .bets-table th, .bets-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .bets-table th {
+            background-color: #f2f2f2;
+        }
+        .betslip .header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background-color: #ffcc00;
+            padding: 5px;
+        }
+        .bet {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .bet-name {
+            flex: 2;
+            font-weight: bold;
+        }
+        .bet-odds, .bet-stake, .bet-profit {
+            flex: 1;
+            text-align: center;
+        }
+        .bet-stake input, .bet-odds input {
+            width: 60px;
+            text-align: center;
+        }
+        .options {
+            margin: 10px 0;
+        }
+        .liability {
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+        }
+        .buttons button {
+            padding: 5px 10px;
+            border: none;
+            cursor: pointer;
+        }
+        .cancel-btn {
+            background-color: #ccc;
+        }
+        .place-btn {
+            background-color: #ffcc00;
+            color: #000;
+        }
+        .confirm-bets {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="bets-table">
+    <h2>UK - Next General Election - Next Government</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Selection</th>
+                <th>Odds</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr data-name="Labour Majority" data-odds="1.02">
+                <td>Labour Majority</td>
+                <td>1.02</td>
+                <td><button onclick="addToBetslip(this)">Add</button></td>
+            </tr>
+            <tr data-name="Labour Minority" data-odds="1.20">
+                <td>Labour Minority</td>
+                <td>1.20</td>
+                <td><button onclick="addToBetslip(this)">Add</button></td>
+            </tr>
+            <!-- Add more rows as needed -->
+        </tbody>
+    </table>
+</div>
+
+<div class="betslip">
+    <div class="header">Win Only Market</div>
+    <div id="betslip-contents">
+        <p>You have no bets on this market.</p>
+    </div>
+    <div class="liability">
+        Liability: <span id="liability-amount">£0.00</span>
+    </div>
+    <div class="buttons">
+        <button class="cancel-btn" onclick="cancelBets()">Cancel all selections</button>
+        <button class="place-btn" onclick="placeBets()">Place bets</button>
+    </div>
+    <div class="confirm-bets">
+        <input type="checkbox" id="confirm-checkbox" checked> Confirm bets before placing
+    </div>
+</div>
+
+<script>
+    function addToBetslip(button) {
+        const row = button.closest('tr');
+        const name = row.dataset.name;
+        const odds = row.dataset.odds;
+
+        const betslipContents = document.getElementById('betslip-contents');
+        betslipContents.innerHTML = `
+            <div class="bet">
+                <div class="bet-name">${name}</div>
+                <div class="bet-odds"><input type="number" step="0.01" value="${odds}" id="odds-input" oninput="updateCalculations()"></div>
+                <div class="bet-stake"><input type="number" value="100" id="stake-input" oninput="updateCalculations()"></div>
+                <div class="bet-profit">£${(100 * (odds - 1)).toFixed(2)}</div>
+            </div>
+            <div class="options">
+                <input type="checkbox" id="bonus-checkbox"> Use Eligible £2.00 Bonus
+            </div>
+        `;
+        updateCalculations();
+    }
+
+    function updateCalculations() {
+        const stake = parseFloat(document.getElementById('stake-input').value) || 0;
+        const odds = parseFloat(document.getElementById('odds-input').value) || 1.02;
+        const liability = stake;
+        const profit = stake * (odds - 1);
+        document.getElementById('liability-amount').textContent = `£${liability.toFixed(2)}`;
+        document.querySelector('.bet-profit').textContent = `£${profit.toFixed(2)}`;
+    }
+
+    function cancelBets() {
+        document.getElementById('betslip-contents').innerHTML = '<p>You have no bets on this market.</p>';
+        document.getElementById('liability-amount').textContent = '£0.00';
+    }
+
+    function placeBets() {
+        if (document.getElementById('confirm-checkbox').checked) {
+            alert('Bets confirmed and placed.');
+        } else {
+            alert('Bets placed without confirmation.');
+        }
+    }
+</script>
+
+</body>
+</html>
